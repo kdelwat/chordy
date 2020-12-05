@@ -51,14 +51,14 @@ func (self *ExerciseWidget) Draw(buf *ui.Buffer) {
 
 	// Draw progress boxes
 	width := len(self.e.Definition.Parts)
-	startX := self.Inner.Min.X + ((self.Inner.Max.X-self.Inner.Min.X)-width)/2
+	startX := self.Inner.Min.X - 1 + ((self.Inner.Max.X-self.Inner.Min.X)-width)/2
 	startY := self.Inner.Min.Y + ((self.Inner.Max.Y - self.Inner.Min.Y) / 2)
 
 	for i := 0; i < width; i++ {
 		var icon rune
 		var style ui.Style
 
-		if self.state == ExerciseFail {
+		if self.state == ExerciseFail && self.e.CurrentStep == i {
 			icon = '▣'
 			style = FailStyle
 		} else if self.e.CurrentStep > i {
