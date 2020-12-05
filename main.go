@@ -145,8 +145,12 @@ func main() {
 	RenderUI(app)
 
 	for e := range ui.PollEvents() {
-		if e.Type == ui.KeyboardEvent {
-			break
+		switch e.ID {
+		case "q", "<C-c>":
+			return
+		case "<Resize>":
+			ClearUI()
+			RenderUI(app)
 		}
 	}
 }

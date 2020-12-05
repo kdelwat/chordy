@@ -83,11 +83,6 @@ func InitUI() error {
 		return err
 	}
 
-	p := widgets.NewParagraph()
-	p.Text = "Chordy"
-	p.SetRect(0, 0, 25, 5)
-	ui.Render(p)
-
 	return nil
 }
 
@@ -95,8 +90,25 @@ func CloseUI() {
 	ui.Close()
 }
 
+func ClearUI() {
+	ui.Clear()
+}
+
 func RenderUI(app *App) {
+	p := widgets.NewParagraph()
+	p.Text = "Chordy"
+	p.SetRect(0, 0, 25, 5)
+
 	e := NewExerciseWidget(app.currentExercise, app.state)
 	e.SetRect(0, 6, 25, 11)
-	ui.Render(e)
+
+	grid := ui.NewGrid()
+	termWidth, termHeight := ui.TerminalDimensions()
+	grid.SetRect(0, 0, termWidth, termHeight)
+	grid.Set(
+		ui.NewRow(1.0/2, ui.NewCol(1.0, p)),
+		ui.NewRow(1.0/2, ui.NewCol(1.0, e)),
+	)
+
+	ui.Render(grid)
 }
