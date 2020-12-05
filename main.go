@@ -1,18 +1,24 @@
 package main
 
 import (
+	"errors"
 	ui "github.com/gizak/termui/v3"
 	"github.com/gpayer/go-audio-service/generators"
 	"github.com/gpayer/go-audio-service/notes"
 	"github.com/gpayer/go-audio-service/snd"
+	"github.com/spf13/viper"
 	"gitlab.com/gomidi/midi"
 	"gitlab.com/gomidi/midi/reader"
 	"gitlab.com/gomidi/rtmididrv"
 	mt "gopkg.in/music-theory.v0/note"
 	"log"
+	"os"
+	"path/filepath"
 )
 
 type App struct {
+	db *DB
+
 	output *snd.Output
 	input  midi.In
 	multi  *notes.NoteMultiplexer
@@ -50,12 +56,23 @@ func InitApp() (*App, error) {
 		return nil, err
 	}
 
+	if len(ins) < 2 {
+		return nil, errors.New("no MIDI input device found")
+	}
+
 	input := ins[1]
 	input.Open()
 
-	ex := ExerciseFromDefinition(Exercises[0])
+	// Open database
+	db, err := DBOpen(viper.Get("DatabasePath").(string))
+	if err != nil {
+		return nil, err
+	}
+
+	ex := ExerciseFromDefinition(db.Items[0].Name, db.Items[0].ExerciseType, db.Items[0].ExerciseDefinition)
 
 	app := App{
+		db:              db,
 		output:          output,
 		input:           input,
 		multi:           multi,
@@ -128,6 +145,41 @@ func (a *App) onNoteOff(p *reader.Position, channel, key, velocity uint8) {
 }
 
 func main() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatalf("could not find user home directory: %v", err)
+	}
+
+	configPath := filepath.Join(home, "/.config/chordy")
+	defaultDataPath := filepath.Join(home, "/.data/chordy")
+
+	if err = os.MkdirAll(configPath, os.ModePerm); err != nil {
+		log.Fatalf("could not create config directory: %v", err)
+	}
+
+	if err = os.MkdirAll(defaultDataPath, os.ModePerm); err != nil {
+		log.Fatalf("could not create config directory: %v", err)
+	}
+
+	viper.SetDefault("DatabasePath", filepath.Join(defaultDataPath, "db.json"))
+	viper.SetDefault("AKey", "66")
+	viper.SetDefault("BKey", "67")
+	viper.SetDefault("CKey", "68")
+	viper.SetDefault("DKey", "69")
+	viper.SetConfigName("config.json")
+	viper.AddConfigPath(configPath)
+
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+
+			if err = viper.WriteConfigAs(filepath.Join(configPath, "config.json")); err != nil {
+				log.Fatalf("could not write default config file: %v", err)
+			}
+		} else {
+			log.Fatalf("could not read config file: %v", err)
+		}
+	}
+
 	app, err := InitApp()
 
 	if err != nil {

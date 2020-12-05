@@ -1,6 +1,7 @@
 package main
 
 import (
+	"gopkg.in/music-theory.v0/chord"
 	"gopkg.in/music-theory.v0/note"
 )
 
@@ -9,31 +10,80 @@ type ExerciseDefinition struct {
 	Parts [][]note.Class
 }
 
-var Exercises = []ExerciseDefinition{
-	ExerciseDefinition{"C Major", [][]note.Class{
-		[]note.Class{note.C},
-		[]note.Class{note.D},
-		[]note.Class{note.E},
-		[]note.Class{note.F},
-		[]note.Class{note.G},
-		[]note.Class{note.A},
-		[]note.Class{note.B},
-	}},
-	ExerciseDefinition{"C", [][]note.Class{[]note.Class{note.C}}},
-	ExerciseDefinition{"C Basic", [][]note.Class{
-		[]note.Class{note.C,
-			note.E,
-			note.G}}},
-}
-
 type Exercise struct {
 	Definition   ExerciseDefinition
 	CurrentStep  int
 	CurrentNotes []note.Class
 }
 
-func ExerciseFromDefinition(d ExerciseDefinition) Exercise {
-	return Exercise{d, 0, []note.Class{}}
+func parseNote(n string) note.Class {
+	switch n {
+	case "C":
+		return note.C
+	case "C#":
+		return note.Cs
+	case "Cb":
+		return note.Cs
+	case "D":
+		return note.D
+	case "D#":
+		return note.Ds
+	case "Db":
+		return note.Ds
+	case "E":
+		return note.E
+	case "F":
+		return note.F
+	case "F#":
+		return note.Fs
+	case "Fb":
+		return note.Fs
+	case "G":
+		return note.G
+	case "G#":
+		return note.Gs
+	case "Gb":
+		return note.Gs
+	case "A":
+		return note.A
+	case "A#":
+		return note.As
+	case "Ab":
+		return note.As
+	case "B":
+		return note.B
+	}
+
+	return note.Nil
+}
+
+func notesToClasses(notes []*note.Note) []note.Class {
+	classes := []note.Class{}
+
+	for _, n := range notes {
+		classes = append(classes, n.Class)
+	}
+
+	return classes
+}
+
+func ExerciseFromDefinition(name, t, def string) Exercise {
+	var definition ExerciseDefinition
+	definition.Name = name
+
+	switch t {
+	case "note":
+		definition.Parts = [][]note.Class{[]note.Class{parseNote(def)}}
+	case "chord":
+		c := chord.Of(def)
+		definition.Parts = [][]note.Class{notesToClasses((&c).Notes())}
+	}
+
+	return Exercise{
+		Definition:   definition,
+		CurrentStep:  0,
+		CurrentNotes: []note.Class{},
+	}
 }
 
 type ExerciseState uint8
