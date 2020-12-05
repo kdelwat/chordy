@@ -1,0 +1,10 @@
+github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/gen2brain/malgo v0.0.0-20190415221052-9100cfc8572b h1:u0Z25/3jYvY++D7xVOBlMKEj1g05M9424eBG1NwOzWE=
+github.com/gen2brain/malgo v0.0.0-20190415221052-9100cfc8572b/go.mod h1:zHSUNZAXfCeNsZou0RtQ6Zk7gDYLIcKOrUWtAdksnEs=
+github.com/gpayer/go-audio-service v0.0.0-20190527202639-d40d5fccb701 h1:atPP7JnWolYiikB06FEWa23moHjpJE8E+khqv1M2F04=
+github.com/gpayer/go-audio-service v0.0.0-20190527202639-d40d5fccb701/go.mod h1:Y6nnhr0dS8CnMOGJk5yJAFeTvx9yfLJrtpdK5Nh2jf8=
+github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
+github.com/rakyll/portmidi v0.0.0-20201020180702-d436ceaa537a h1:+qeh9b4LlO8AYVvm+TG4OXDRwBynTLk82t0HDBBBOQ8=
+github.com/rakyll/portmidi v0.0.0-20201020180702-d436ceaa537a/go.mod h1:xKffaBd7e1YUoLpR2azvJqkxEdUDNGNDMlsUNdv6Bcs=
+github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
+github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
