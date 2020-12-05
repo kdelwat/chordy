@@ -14,12 +14,12 @@ func onMidiEvent(multi *notes.NoteMultiplexer, e portmidi.Event) {
 	case 0x90:
 		// NOTE ON
 		note := notes.MidiToNote(e.Data1)
-		multi.SendNoteEvent(notes.NewNoteEvent(notes.Pressed, note, 0.1))
+		multi.SendNoteEvent(notes.NewNoteEvent(notes.Pressed, note, float32(e.Data2)/127))
 
 	case 0x80:
 		// NOTE OFF
 		note := notes.MidiToNote(e.Data1)
-		multi.SendNoteEvent(notes.NewNoteEvent(notes.Released, note, 0.1))
+		multi.SendNoteEvent(notes.NewNoteEvent(notes.Released, note, float32(e.Data2)/127))
 	}
 }
 
