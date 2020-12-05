@@ -1,49 +1,30 @@
 package main
 
-import "github.com/rakyll/portmidi"
-import "log"
-import "fmt"
-import "github.com/gpayer/go-audio-service/generators"
-import "github.com/gpayer/go-audio-service/notes"
-import "github.com/gpayer/go-audio-service/snd"
-import "time"
+import (
+	ui "github.com/gizak/termui/v3"
+	"github.com/gizak/termui/v3/widgets"
+	"github.com/gpayer/go-audio-service/generators"
+	"github.com/gpayer/go-audio-service/notes"
+	"github.com/gpayer/go-audio-service/snd"
+	"gitlab.com/gomidi/midi"
+	"gitlab.com/gomidi/midi/reader"
+	"gitlab.com/gomidi/rtmididrv"
+	"log"
+)
 
-func onMidiEvent(multi *notes.NoteMultiplexer, e portmidi.Event) {
-	log.Printf("[MIDI] %x %x\n", e.Status, e.Data1, e.Data2)
-	switch e.Status {
-	case 0x90:
-		// NOTE ON
-		note := notes.MidiToNote(e.Data1)
-		multi.SendNoteEvent(notes.NewNoteEvent(notes.Pressed, note, float32(e.Data2)/127))
-
-	case 0x80:
-		// NOTE OFF
-		note := notes.MidiToNote(e.Data1)
-		multi.SendNoteEvent(notes.NewNoteEvent(notes.Released, note, float32(e.Data2)/127))
-	}
+type App struct {
+	output *snd.Output
+	input  midi.In
+	multi  *notes.NoteMultiplexer
+	driver *rtmididrv.Driver
 }
 
-func main() {
-	fmt.Println("Welcome to Chordy")
-
-	portmidi.Initialize()
-	defer portmidi.Terminate()
-
-	fmt.Println("Number of MIDI devices: ", portmidi.CountDevices())
-	fmt.Println("Default input device: ", portmidi.DefaultInputDeviceID())
-
-	in, err := portmidi.NewInputStream(3, 1024)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer in.Close()
-
+func InitApp() (*App, error) {
+	// Set up output stream
 	output, err := snd.NewOutput(44000, 512)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	defer output.Close()
 
 	rect := generators.NewRect(44000, 440.0)
 	multi := notes.NewNoteMultiplexer()
@@ -52,28 +33,78 @@ func main() {
 
 	err = output.Start()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	ch := in.Listen()
-
-	for event := range ch {
-		onMidiEvent(multi, event)
+	// Set up input stream
+	driver, err := rtmididrv.New()
+	if err != nil {
+		return nil, err
 	}
 
-	multi.SendNoteEvent(notes.NewNoteEvent(notes.Pressed, notes.Note(notes.C, 3), 0.1))
-	time.Sleep(500 * time.Millisecond)
-	multi.SendNoteEvent(notes.NewNoteEvent(notes.Pressed, notes.Note(notes.E, 3), 0.1))
-	time.Sleep(500 * time.Millisecond)
-	multi.SendNoteEvent(notes.NewNoteEvent(notes.Pressed, notes.Note(notes.G, 3), 0.1))
-	time.Sleep(750 * time.Millisecond)
-	multi.SendNoteEvent(notes.NewNoteEvent(notes.Pressed, notes.Note(notes.G, 2), 0.1))
-	time.Sleep(1000 * time.Millisecond)
-	multi.SendNoteEvent(notes.NewNoteEvent(notes.Released, notes.Note(notes.C, 3), 0.0))
-	multi.SendNoteEvent(notes.NewNoteEvent(notes.Released, notes.Note(notes.E, 3), 0.0))
-	multi.SendNoteEvent(notes.NewNoteEvent(notes.Released, notes.Note(notes.G, 3), 0.0))
-	time.Sleep(5000 * time.Millisecond)
-	multi.SendNoteEvent(notes.NewNoteEvent(notes.Released, notes.Note(notes.G, 2), 0.0))
+	ins, err := driver.Ins()
+	if err != nil {
+		return nil, err
+	}
 
-	_ = output.Stop()
+	input := ins[1]
+	input.Open()
+
+	app := App{output, input, multi, driver}
+
+	rd := reader.New(
+		reader.NoLogger(),
+		reader.NoteOn(app.onNoteOn),
+		reader.NoteOff(app.onNoteOff),
+	)
+
+	err = rd.ListenTo(input)
+	if err != nil {
+		return nil, err
+	}
+
+	return &app, nil
+}
+
+func (a *App) Stop() {
+	_ = a.output.Stop()
+	a.driver.Close()
+	a.input.Close()
+}
+
+func (a *App) onNoteOn(p *reader.Position, channel, key, velocity uint8) {
+	note := notes.MidiToNote(int64(key))
+	a.multi.SendNoteEvent(notes.NewNoteEvent(notes.Pressed, note, float32(velocity)/127))
+}
+
+func (a *App) onNoteOff(p *reader.Position, channel, key, velocity uint8) {
+	note := notes.MidiToNote(int64(key))
+	a.multi.SendNoteEvent(notes.NewNoteEvent(notes.Released, note, float32(velocity)/127))
+}
+
+func main() {
+	app, err := InitApp()
+
+	if err != nil {
+		log.Fatalf("could not initialize app: %v", err)
+	}
+
+	defer app.Stop()
+
+	if err := ui.Init(); err != nil {
+		log.Fatalf("could not initialize UI: %v", err)
+	}
+	defer ui.Close()
+
+	p := widgets.NewParagraph()
+	p.Text = "Chordy"
+	p.SetRect(0, 0, 25, 5)
+
+	ui.Render(p)
+
+	for e := range ui.PollEvents() {
+		if e.Type == ui.KeyboardEvent {
+			break
+		}
+	}
 }
