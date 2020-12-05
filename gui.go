@@ -95,11 +95,35 @@ func ClearUI() {
 }
 
 func RenderUI(app *App) {
+	switch app.state {
+	case StateHome:
+		renderHome(app)
+	case StateInSession:
+		renderInSession(app)
+	}
+}
+
+func renderHome(app *App) {
 	p := widgets.NewParagraph()
 	p.Text = "Chordy"
 	p.SetRect(0, 0, 25, 5)
 
-	e := NewExerciseWidget(app.currentExercise, app.state)
+	grid := ui.NewGrid()
+	termWidth, termHeight := ui.TerminalDimensions()
+	grid.SetRect(0, 0, termWidth, termHeight)
+	grid.Set(
+		ui.NewRow(1.0/2, ui.NewCol(1.0, p)),
+	)
+
+	ui.Render(grid)
+}
+
+func renderInSession(app *App) {
+	p := widgets.NewParagraph()
+	p.Text = "Chordy"
+	p.SetRect(0, 0, 25, 5)
+
+	e := NewExerciseWidget(app.stateInSession.currentExercise, app.stateInSession.state)
 	e.SetRect(0, 6, 25, 11)
 
 	grid := ui.NewGrid()

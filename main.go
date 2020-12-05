@@ -24,8 +24,22 @@ type App struct {
 	multi  *notes.NoteMultiplexer
 	driver *rtmididrv.Driver
 
-	state           ExerciseState
-	currentExercise *Exercise
+	keys          chan uint8
+	pressed       []uint8
+	waitingForKey bool
+
+	state          AppState
+	stateInSession StateInSessionArgs
+}
+
+func (a *App) WaitForKeypress() {
+	a.waitingForKey = true
+	a.pressed = []uint8{}
+	a.keys = make(chan uint8)
+
+	_ = <-a.keys
+
+	a.waitingForKey = false
 }
 
 func InitApp() (*App, error) {
@@ -69,16 +83,14 @@ func InitApp() (*App, error) {
 		return nil, err
 	}
 
-	ex := ExerciseFromDefinition(db.Items[0].Name, db.Items[0].ExerciseType, db.Items[0].ExerciseDefinition)
-
+	// Create app state
 	app := App{
-		db:              db,
-		output:          output,
-		input:           input,
-		multi:           multi,
-		driver:          driver,
-		currentExercise: &ex,
-		state:           ExerciseInProgress}
+		db:     db,
+		output: output,
+		input:  input,
+		multi:  multi,
+		driver: driver,
+		state:  StateHome}
 
 	rd := reader.New(
 		reader.NoLogger(),
@@ -101,10 +113,36 @@ func (a *App) Stop() {
 }
 
 func (a *App) onNoteOn(p *reader.Position, channel, key, velocity uint8) {
+	log.Printf("ON %v (waiting = %v)", key, a.waitingForKey)
+
+	if a.waitingForKey {
+		a.pressed = append(a.pressed, key)
+		return
+	}
+
 	note := notes.MidiToNote(int64(key))
 	a.multi.SendNoteEvent(notes.NewNoteEvent(notes.Pressed, note, float32(velocity)/127))
 
-	if a.currentExercise != nil {
+	switch a.state {
+	case StateHome:
+		exercises := GetItemsForToday(a.db.Items)
+
+		if len(exercises) == 0 {
+			return
+		}
+
+		firstExerciseItem := a.db.Items[exercises[0]]
+		firstExercise := (ExerciseFromDefinition(firstExerciseItem.Name, firstExerciseItem.ExerciseType, firstExerciseItem.ExerciseDefinition))
+
+		a.state = StateInSession
+		a.stateInSession = StateInSessionArgs{
+			exercises:       exercises,
+			currentIndex:    0,
+			currentExercise: &firstExercise,
+			state:           ExerciseInProgress,
+		}
+
+	case StateInSession:
 		var noteClass mt.Class
 		switch key % 12 {
 		case 0:
@@ -133,15 +171,56 @@ func (a *App) onNoteOn(p *reader.Position, channel, key, velocity uint8) {
 			noteClass = mt.B
 		}
 
-		a.state = a.currentExercise.Progress(noteClass)
+		exerciseState := a.stateInSession.currentExercise.Progress(noteClass)
+		a.stateInSession.state = exerciseState
 
-		RenderUI(a)
+		switch exerciseState {
+		case ExerciseFail:
+			RenderUI(a)
+			a.WaitForKeypress()
+			a.stateInSession.currentExercise.Reset()
+			a.stateInSession.state = ExerciseInProgress
+		case ExercisePass:
+			RenderUI(a)
+			a.WaitForKeypress()
+			a.stateInSession.currentIndex++
+
+			if a.stateInSession.currentIndex == len(a.stateInSession.exercises) {
+				a.state = StateHome
+			} else {
+				nextExerciseItem := a.db.Items[a.stateInSession.exercises[a.stateInSession.currentIndex]]
+				nextExercise := ExerciseFromDefinition(nextExerciseItem.Name, nextExerciseItem.ExerciseType, nextExerciseItem.ExerciseDefinition)
+				a.stateInSession.state = ExerciseInProgress
+				a.stateInSession.currentExercise = &nextExercise
+			}
+		}
 	}
+
+	RenderUI(a)
+}
+
+func (a *App) hasKeyBeenPressed(key uint8) bool {
+	for _, k := range a.pressed {
+		if k == key {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (a *App) onNoteOff(p *reader.Position, channel, key, velocity uint8) {
+	log.Printf("OFF %v (waiting = %v)", key, a.waitingForKey)
+
 	note := notes.MidiToNote(int64(key))
 	a.multi.SendNoteEvent(notes.NewNoteEvent(notes.Released, note, float32(velocity)/127))
+
+	if a.waitingForKey && a.hasKeyBeenPressed(key) {
+		a.keys <- key
+		return
+	}
+
+	RenderUI(a)
 }
 
 func main() {

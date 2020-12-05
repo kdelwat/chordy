@@ -86,13 +86,10 @@ func ExerciseFromDefinition(name, t, def string) Exercise {
 	}
 }
 
-type ExerciseState uint8
-
-const (
-	ExerciseInProgress = iota
-	ExerciseFail
-	ExercisePass
-)
+func (e *Exercise) Reset() {
+	e.CurrentStep = 0
+	e.CurrentNotes = []note.Class{}
+}
 
 func (e *Exercise) Progress(n note.Class) ExerciseState {
 	// Ignore repeated note presses
