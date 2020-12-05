@@ -20,6 +20,7 @@ type DBItem struct {
 
 type DB struct {
 	Items []DBItem
+	Path  string
 }
 
 // https://stackoverflow.com/a/22467409
@@ -33,7 +34,7 @@ func fileExists(path string) bool {
 
 func DBOpen(path string) (*DB, error) {
 	if !fileExists(path) {
-		db := DB{Items: DefaultItems()}
+		db := DB{Items: DefaultItems(), Path: path}
 
 		dbJson, err := json.Marshal(db)
 		if err != nil {
@@ -58,6 +59,32 @@ func DBOpen(path string) (*DB, error) {
 
 		return &db, nil
 	}
+}
+
+func (self *DB) Update(name string, recalls uint, ef float32, interval uint, lastRecalledAt time.Time) error {
+	for _, item := range self.Items {
+		if item.Name == name {
+			item.Recalls = recalls
+			item.Ef = ef
+			item.Interval = interval
+			item.LastRecalledAt = lastRecalledAt
+		}
+	}
+
+	return self.Save()
+}
+
+func (self *DB) Save() error {
+	dbJson, err := json.Marshal(self)
+	if err != nil {
+		return err
+	}
+
+	if err = ioutil.WriteFile(self.Path, dbJson, 0644); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func makeDefaultItem(name, exerciseType, exerciseDefinition string) DBItem {

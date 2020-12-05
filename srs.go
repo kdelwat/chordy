@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"math/rand"
 	"sort"
 	"time"
@@ -44,4 +45,31 @@ func GetItemsForToday(items []DBItem) []int {
 
 func NextRecallTime(item DBItem) time.Time {
 	return item.LastRecalledAt.Add(time.Hour * time.Duration(24*item.Interval))
+}
+
+// Implements the SuperMemo SM-2 algorithm
+func RecalculateItem(q, recalls, interval uint, ef float32) (uint, uint, float32) {
+	if q >= 3 {
+		// Recalled correctly
+		if recalls == 0 {
+			interval = 1
+		} else if recalls == 1 {
+			interval = 6
+		} else {
+			interval = uint(math.Ceil(float64(interval) * float64(ef)))
+		}
+
+		ef = ef - 0.8 + 0.28*float32(q) - 0.02*float32(q*q)
+
+		if ef < 1.3 {
+			ef = 1.3
+		}
+
+		recalls++
+	} else {
+		recalls = 0
+		interval = 1
+	}
+
+	return recalls, interval, ef
 }

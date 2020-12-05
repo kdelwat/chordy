@@ -38,12 +38,12 @@ func (self *ExerciseWidget) Draw(buf *ui.Buffer) {
 		NormalStyle)
 
 	if self.state == ExerciseFail {
-		self.DrawText(buf, "FAILED. Play any note to continue.",
+		self.DrawText(buf, "FAILED. Make any selection to continue.",
 			self.Inner.Min.X,
 			self.Inner.Min.Y+1,
 			FailStyle)
 	} else if self.state == ExercisePass {
-		self.DrawText(buf, "PASSED. Play any note to continue.",
+		self.DrawText(buf, "PASSED. Make any selection to continue.",
 			self.Inner.Min.X,
 			self.Inner.Min.Y+1,
 			SuccessStyle)

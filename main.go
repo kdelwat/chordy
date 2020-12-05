@@ -14,6 +14,18 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
+)
+
+type SelectionKey uint8
+
+const (
+	KeyInvalid = iota
+	KeyA
+	KeyB
+	KeyC
+	KeyD
 )
 
 type App struct {
@@ -31,12 +43,12 @@ type App struct {
 	stateInSession StateInSessionArgs
 }
 
-func (a *App) WaitForKeypress() {
+func (a *App) WaitForSelection() {
 	a.waitingForKey = true
 	a.pressedWhileWaiting = []uint8{}
 }
 
-func (a *App) CanFinishWaiting(key uint8) bool {
+func (a *App) SelectionReady(key uint8) bool {
 	for _, k := range a.pressedWhileWaiting {
 		if k == key {
 			a.waitingForKey = false
@@ -117,10 +129,34 @@ func (a *App) Stop() {
 	a.input.Close()
 }
 
-func (a *App) onNoteOn(p *reader.Position, channel, key, velocity uint8) {
+func getSelectionKey(key uint8) SelectionKey {
+	keyString := strconv.Itoa(int(key))
 
+	switch keyString {
+	case viper.Get("AKey"):
+		return KeyA
+	case viper.Get("BKey"):
+		return KeyB
+	case viper.Get("CKey"):
+		return KeyC
+	case viper.Get("DKey"):
+		return KeyD
+	}
+
+	return KeyInvalid
+}
+
+func isSelectionKey(key uint8) bool {
+	selectionKey := getSelectionKey(key)
+
+	return selectionKey != KeyInvalid
+}
+
+func (a *App) onNoteOn(p *reader.Position, channel, key, velocity uint8) {
 	if a.waitingForKey {
-		a.pressedWhileWaiting = append(a.pressedWhileWaiting, key)
+		if isSelectionKey(key) {
+			a.pressedWhileWaiting = append(a.pressedWhileWaiting, key)
+		}
 		return
 	}
 
@@ -180,9 +216,9 @@ func (a *App) onNoteOn(p *reader.Position, channel, key, velocity uint8) {
 
 		switch exerciseState {
 		case ExerciseFail:
-			a.WaitForKeypress()
+			a.WaitForSelection()
 		case ExercisePass:
-			a.WaitForKeypress()
+			a.WaitForSelection()
 		}
 	}
 
@@ -197,12 +233,30 @@ func (a *App) onNoteOff(p *reader.Position, channel, key, velocity uint8) {
 	case StateInSession:
 		switch a.stateInSession.state {
 		case ExerciseFail:
-			if a.CanFinishWaiting(key) {
+			if a.SelectionReady(key) {
 				a.stateInSession.currentExercise.Reset()
 				a.stateInSession.state = ExerciseInProgress
 			}
 		case ExercisePass:
-			if a.CanFinishWaiting(key) {
+			if a.SelectionReady(key) {
+				selectionKey := getSelectionKey(key)
+				var q uint
+				switch selectionKey {
+				case KeyA:
+					q = 0
+				case KeyB:
+					q = 3
+				case KeyC:
+					q = 4
+				case KeyD:
+					q = 5
+				}
+
+				currentExerciseItem := a.db.Items[a.stateInSession.exercises[a.stateInSession.currentIndex]]
+				recalls, interval, ef := RecalculateItem(q, currentExerciseItem.Recalls, currentExerciseItem.Interval, currentExerciseItem.Ef)
+
+				a.db.Update(currentExerciseItem.Name, recalls, ef, interval, time.Now())
+
 				a.stateInSession.currentIndex++
 
 				if a.stateInSession.currentIndex == len(a.stateInSession.exercises) {
@@ -238,10 +292,10 @@ func main() {
 	}
 
 	viper.SetDefault("DatabasePath", filepath.Join(defaultDataPath, "db.json"))
-	viper.SetDefault("AKey", "66")
-	viper.SetDefault("BKey", "67")
-	viper.SetDefault("CKey", "68")
-	viper.SetDefault("DKey", "69")
+	viper.SetDefault("AKey", "40")
+	viper.SetDefault("BKey", "41")
+	viper.SetDefault("CKey", "42")
+	viper.SetDefault("DKey", "43")
 	viper.SetConfigName("config.json")
 	viper.AddConfigPath(configPath)
 
