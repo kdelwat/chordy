@@ -109,7 +109,7 @@ func (e *Exercise) Progress(n note.Class) ExerciseState {
 	if len(e.CurrentNotes) == len(e.Definition.Parts[e.CurrentStep]) {
 		e.CurrentStep = e.CurrentStep + 1
 		e.CurrentNotes = []note.Class{}
-		if e.CurrentStep > len(e.Definition.Parts) {
+		if e.CurrentStep >= len(e.Definition.Parts) {
 			return ExercisePass
 		}
 	}
