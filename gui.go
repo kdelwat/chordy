@@ -119,12 +119,12 @@ func renderHome(app *App) {
 }
 
 func renderInSession(app *App) {
-	p := widgets.NewParagraph()
-	p.Text = "Chordy"
-	p.SetRect(0, 0, 25, 5)
+	p := widgets.NewGauge()
+	p.Title = "Progress"
+	p.Percent = int(100.0 * float32(app.stateInSession.currentIndex) / float32(len(app.stateInSession.exercises)))
+	p.Label = fmt.Sprintf("%v%% (%v/%v)", p.Percent, app.stateInSession.currentIndex, len(app.stateInSession.exercises))
 
 	e := NewExerciseWidget(app.stateInSession.currentExercise, app.stateInSession.state)
-	e.SetRect(0, 6, 25, 11)
 
 	grid := ui.NewGrid()
 	termWidth, termHeight := ui.TerminalDimensions()
