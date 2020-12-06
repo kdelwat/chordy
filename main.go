@@ -206,38 +206,45 @@ func (a *App) onNoteOn(p *reader.Position, channel, key, velocity uint8) {
 		}
 
 	case StateInSession:
-		var noteClass mt.Class
-		switch key % 12 {
-		case 0:
-			noteClass = mt.C
-		case 1:
-			noteClass = mt.Cs
-		case 2:
-			noteClass = mt.D
-		case 3:
-			noteClass = mt.Ds
-		case 4:
-			noteClass = mt.E
-		case 5:
-			noteClass = mt.F
-		case 6:
-			noteClass = mt.Fs
-		case 7:
-			noteClass = mt.G
-		case 8:
-			noteClass = mt.Gs
-		case 9:
-			noteClass = mt.A
-		case 10:
-			noteClass = mt.As
-		case 11:
-			noteClass = mt.B
+		// Check pads first
+		if getSelectionKey(key) == KeyA {
+			a.stateInSession.state = ExerciseFail
+		} else if getSelectionKey(key) == KeyB {
+			a.stateInSession.showHint = true
+		} else {
+			var noteClass mt.Class
+			switch key % 12 {
+			case 0:
+				noteClass = mt.C
+			case 1:
+				noteClass = mt.Cs
+			case 2:
+				noteClass = mt.D
+			case 3:
+				noteClass = mt.Ds
+			case 4:
+				noteClass = mt.E
+			case 5:
+				noteClass = mt.F
+			case 6:
+				noteClass = mt.Fs
+			case 7:
+				noteClass = mt.G
+			case 8:
+				noteClass = mt.Gs
+			case 9:
+				noteClass = mt.A
+			case 10:
+				noteClass = mt.As
+			case 11:
+				noteClass = mt.B
+			}
+
+			exerciseState := a.stateInSession.currentExercise.Progress(noteClass)
+			a.stateInSession.state = exerciseState
 		}
 
-		exerciseState := a.stateInSession.currentExercise.Progress(noteClass)
-		a.stateInSession.state = exerciseState
-
-		switch exerciseState {
+		switch a.stateInSession.state {
 		case ExerciseFail:
 			a.WaitForSelection()
 		case ExercisePass:
@@ -257,8 +264,25 @@ func (a *App) onNoteOff(p *reader.Position, channel, key, velocity uint8) {
 		switch a.stateInSession.state {
 		case ExerciseFail:
 			if a.SelectionReady(key) {
-				a.stateInSession.currentExercise.Reset()
-				a.stateInSession.state = ExerciseInProgress
+				if getSelectionKey(key) == KeyA {
+					a.stateInSession.currentExercise.Reset()
+					a.stateInSession.state = ExerciseInProgress
+				} else {
+					updatedCard := RecalculateCard(a.stateInSession.cards[a.stateInSession.currentIndex], 0)
+					a.db.Upsert(updatedCard)
+
+					a.stateInSession.currentIndex++
+
+					if a.stateInSession.currentIndex == len(a.stateInSession.cards) {
+						a.state = StateHome
+					} else {
+						currentExercise := CreateExercise(a.stateInSession.cards[a.stateInSession.currentIndex])
+						a.stateInSession.state = ExerciseInProgress
+						a.stateInSession.currentExercise = &currentExercise
+						a.stateInSession.showHint = false
+					}
+				}
+
 			}
 		case ExercisePass:
 			// Wait for the user to make a pad selection
@@ -268,11 +292,11 @@ func (a *App) onNoteOff(p *reader.Position, channel, key, velocity uint8) {
 				var difficulty uint
 				switch selectionKey {
 				case KeyA:
-					difficulty = 0
-				case KeyB:
 					difficulty = 3
-				case KeyC:
+				case KeyB:
 					difficulty = 4
+				case KeyC:
+					difficulty = 5
 				case KeyD:
 					difficulty = 5
 				}
@@ -289,6 +313,7 @@ func (a *App) onNoteOff(p *reader.Position, channel, key, velocity uint8) {
 					currentExercise := CreateExercise(a.stateInSession.cards[a.stateInSession.currentIndex])
 					a.stateInSession.state = ExerciseInProgress
 					a.stateInSession.currentExercise = &currentExercise
+					a.stateInSession.showHint = false
 				}
 			}
 		}

@@ -103,6 +103,25 @@ func RenderUI(app *App) {
 	}
 }
 
+func padRow(ratio float64, a, b, c, d string) ui.GridItem {
+	aP := widgets.NewParagraph()
+	aP.Text = a
+	bP := widgets.NewParagraph()
+	bP.Text = b
+	cP := widgets.NewParagraph()
+	cP.Text = c
+	dP := widgets.NewParagraph()
+	dP.Text = d
+
+	return ui.NewRow(
+		ratio,
+		ui.NewCol(1.0/4, aP),
+		ui.NewCol(1.0/4, bP),
+		ui.NewCol(1.0/4, cP),
+		ui.NewCol(1.0/4, dP),
+	)
+}
+
 func renderHome(app *App) {
 	p := widgets.NewParagraph()
 	p.Text = "Chordy"
@@ -120,18 +139,42 @@ func renderHome(app *App) {
 
 func renderInSession(app *App) {
 	p := widgets.NewGauge()
-	p.Title = "Progress"
+	p.Title = "Session Progress"
 	p.Percent = int(100.0 * float32(app.stateInSession.currentIndex) / float32(len(app.stateInSession.cards)))
 	p.Label = fmt.Sprintf("%v%% (%v/%v)", p.Percent, app.stateInSession.currentIndex, len(app.stateInSession.cards))
 
+	info := widgets.NewParagraph()
+	info.Title = "Current Exercise"
+	card := app.stateInSession.cards[app.stateInSession.currentIndex]
+	var lastSeen string
+	if card.LastRecalledAt.IsZero() {
+		lastSeen = "never"
+	} else {
+		lastSeen = fmt.Sprintf("%v", card.LastRecalledAt)
+	}
+
+	info.Text = fmt.Sprintf("Name: %v\nLast seen: %v\nEstimated difficulty: %v", card.Name, lastSeen, card.Ef)
+
 	e := NewExerciseWidget(app.stateInSession.currentExercise, app.stateInSession.state)
+
+	var pads ui.GridItem
+
+	switch app.stateInSession.state {
+	case ExerciseInProgress:
+		pads = padRow(1.0/4, "Give up", "Hint", "", "")
+	case ExerciseFail:
+		pads = padRow(1.0/4, "Retry", "Continue", "", "")
+	case ExercisePass:
+		pads = padRow(1.0/4, "Easy", "Normal", "Hard", "")
+	}
 
 	grid := ui.NewGrid()
 	termWidth, termHeight := ui.TerminalDimensions()
 	grid.SetRect(0, 0, termWidth, termHeight)
 	grid.Set(
-		ui.NewRow(1.0/2, ui.NewCol(1.0, p)),
-		ui.NewRow(1.0/2, ui.NewCol(1.0, e)),
+		ui.NewRow(1.0/4, ui.NewCol(1.0/2, info), ui.NewCol(1.0/2, p)),
+		ui.NewRow(3*1.0/4-(1.0/8), ui.NewCol(1.0, e)),
+		pads,
 	)
 
 	ui.Render(grid)

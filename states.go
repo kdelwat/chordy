@@ -22,4 +22,5 @@ type StateInSessionArgs struct {
 	currentIndex    int
 	currentExercise *Exercise
 	state           ExerciseState
+	showHint        bool
 }
