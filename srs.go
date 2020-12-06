@@ -7,12 +7,12 @@ import (
 
 const MaxItemsPerDay = 10
 
-func NextRecallTime(item DBItem) time.Time {
-	return item.LastRecalledAt.Add(time.Hour * time.Duration(24*item.Interval))
+func NextRecallTime(card Card) time.Time {
+	return card.LastRecalledAt.Add(time.Hour * time.Duration(24*card.Interval))
 }
 
 // Implements the SuperMemo SM-2 algorithm
-func RecalculateCard(card DBItem, difficulty uint) DBItem {
+func RecalculateCard(card Card, difficulty uint) Card {
 	card.LastRecalledAt = time.Now()
 
 	if difficulty >= 3 {

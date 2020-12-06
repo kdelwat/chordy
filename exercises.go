@@ -67,7 +67,7 @@ func notesToClasses(notes []*note.Note) []note.Class {
 	return classes
 }
 
-func CreateExercise(card DBItem) Exercise {
+func CreateExercise(card Card) Exercise {
 	var definition ExerciseDefinition
 	definition.Name = card.Name
 

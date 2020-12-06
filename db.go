@@ -14,7 +14,7 @@ var MigrationBucket = []byte("migrations")
 
 var Migrated = []byte{1}
 
-type DBItem struct {
+type Card struct {
 	Name               string
 	Recalls            uint
 	Ef                 float32
@@ -24,16 +24,16 @@ type DBItem struct {
 	LastRecalledAt     time.Time
 }
 
-func (self *DBItem) Key() []byte {
+func (self *Card) Key() []byte {
 	return []byte(self.Name)
 }
 
-func (self *DBItem) Serialize() ([]byte, error) {
+func (self *Card) Serialize() ([]byte, error) {
 	return json.Marshal(self)
 }
 
-func DeserializeCard(data []byte) (DBItem, error) {
-	var card DBItem
+func DeserializeCard(data []byte) (Card, error) {
+	var card Card
 	err := json.Unmarshal(data, &card)
 	return card, err
 }
@@ -62,13 +62,13 @@ func Connect(path string) (*DB, error) {
 		hasAddedDefaults := migrations.Get([]byte("defaults"))
 
 		if hasAddedDefaults == nil {
-			for _, item := range DefaultItems() {
-				v, err := item.Serialize()
+			for _, card := range DefaultCards() {
+				v, err := card.Serialize()
 				if err != nil {
 					return err
 				}
 
-				err = cards.Put(item.Key(), v)
+				err = cards.Put(card.Key(), v)
 				if err != nil {
 					return err
 				}
@@ -94,16 +94,16 @@ func (self *DB) Close() {
 	self.db.Close()
 }
 
-func (self *DB) Upsert(item DBItem) error {
+func (self *DB) Upsert(card Card) error {
 	return self.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(CardBucket)
 
-		v, err := item.Serialize()
+		v, err := card.Serialize()
 		if err != nil {
 			return err
 		}
 
-		return b.Put(item.Key(), v)
+		return b.Put(card.Key(), v)
 	})
 }
 
@@ -115,22 +115,22 @@ func min(a, b int) int {
 	}
 }
 
-func (self *DB) GetCardsForToday() ([]DBItem, error) {
+func (self *DB) GetCardsForToday() ([]Card, error) {
 	// Read in all cards which have a next recall time before now (ready for review)
-	eligibleCards := []DBItem{}
+	eligibleCards := []Card{}
 	now := time.Now()
 
 	err := self.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(CardBucket)
 		b.ForEach(func(k, v []byte) error {
-			item, err := DeserializeCard(v)
+			card, err := DeserializeCard(v)
 
 			if err != nil {
 				return err
 			}
 
-			if NextRecallTime(item).Before(now) {
-				eligibleCards = append(eligibleCards, item)
+			if NextRecallTime(card).Before(now) {
+				eligibleCards = append(eligibleCards, card)
 			}
 
 			return nil
@@ -159,8 +159,8 @@ func (self *DB) GetCardsForToday() ([]DBItem, error) {
 	return eligibleCards, nil
 }
 
-func makeDefaultItem(name, exerciseType, exerciseDefinition string) DBItem {
-	return DBItem{
+func makeDefaultCard(name, exerciseType, exerciseDefinition string) Card {
+	return Card{
 		Name:               name,
 		Recalls:            0,
 		Ef:                 2.5,
@@ -170,8 +170,8 @@ func makeDefaultItem(name, exerciseType, exerciseDefinition string) DBItem {
 	}
 }
 
-func DefaultItems() []DBItem {
-	items := []DBItem{}
+func DefaultCards() []Card {
+	cards := []Card{}
 
 	notes := []string{
 		"Ab",
@@ -195,13 +195,13 @@ func DefaultItems() []DBItem {
 
 	for _, note := range notes {
 		// Base note
-		items = append(items, makeDefaultItem(fmt.Sprintf("%s (note)", note), "note", note))
+		cards = append(cards, makeDefaultCard(fmt.Sprintf("%s (note)", note), "note", note))
 
 		// Chords
-		items = append(items, makeDefaultItem(fmt.Sprintf("%smaj (chord)", note), "chord", note))
-		items = append(items, makeDefaultItem(fmt.Sprintf("%smin (chord)", note), "chord", note))
-		items = append(items, makeDefaultItem(fmt.Sprintf("%snon (chord)", note), "chord", note))
+		cards = append(cards, makeDefaultCard(fmt.Sprintf("%smaj (chord)", note), "chord", note))
+		cards = append(cards, makeDefaultCard(fmt.Sprintf("%smin (chord)", note), "chord", note))
+		cards = append(cards, makeDefaultCard(fmt.Sprintf("%snon (chord)", note), "chord", note))
 	}
 
-	return items
+	return cards
 }
