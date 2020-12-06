@@ -144,7 +144,8 @@ func padRow(ratio float64, a, b, c, d string) ui.GridItem {
 
 func renderHome(app *App) {
 	p := widgets.NewParagraph()
-	p.Text = "Chordy"
+	p.Text = "Welcome to Chordy\nPlay any note to start a new session!"
+
 	p.SetRect(0, 0, 25, 5)
 
 	grid := ui.NewGrid()
