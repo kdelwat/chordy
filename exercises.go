@@ -3,6 +3,7 @@ package main
 import (
 	"gopkg.in/music-theory.v0/chord"
 	"gopkg.in/music-theory.v0/note"
+	"gopkg.in/music-theory.v0/scale"
 )
 
 type ExerciseDefinition struct {
@@ -77,6 +78,12 @@ func CreateExercise(card Card) Exercise {
 	case "chord":
 		c := chord.Of(card.ExerciseDefinition)
 		definition.Parts = [][]note.Class{notesToClasses((&c).Notes())}
+	case "scale":
+		s := scale.Of(card.ExerciseDefinition)
+		definition.Parts = [][]note.Class{}
+		for _, n := range notesToClasses((&s).Notes()) {
+			definition.Parts = append(definition.Parts, []note.Class{n})
+		}
 	}
 
 	return Exercise{

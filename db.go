@@ -170,6 +170,28 @@ func makeDefaultCard(name, exerciseType, exerciseDefinition string) Card {
 	}
 }
 
+func makeDefaultCardWithChord(note, chordForm string) Card {
+	return Card{
+		Name:               fmt.Sprintf("%s%s (chord)", note, chordForm),
+		Recalls:            0,
+		Ef:                 2.5,
+		Interval:           0,
+		ExerciseType:       "chord",
+		ExerciseDefinition: fmt.Sprintf("%s%s", note, chordForm),
+	}
+}
+
+func makeDefaultCardWithScale(note, scaleForm string) Card {
+	return Card{
+		Name:               fmt.Sprintf("%s %s (scale)", note, scaleForm),
+		Recalls:            0,
+		Ef:                 2.5,
+		Interval:           0,
+		ExerciseType:       "scale",
+		ExerciseDefinition: fmt.Sprintf("%s %s", note, scaleForm),
+	}
+}
+
 func DefaultCards() []Card {
 	cards := []Card{}
 
@@ -198,9 +220,14 @@ func DefaultCards() []Card {
 		cards = append(cards, makeDefaultCard(fmt.Sprintf("%s (note)", note), "note", note))
 
 		// Chords
-		cards = append(cards, makeDefaultCard(fmt.Sprintf("%smaj (chord)", note), "chord", note))
-		cards = append(cards, makeDefaultCard(fmt.Sprintf("%smin (chord)", note), "chord", note))
-		cards = append(cards, makeDefaultCard(fmt.Sprintf("%snon (chord)", note), "chord", note))
+		cards = append(cards, makeDefaultCardWithChord(note, "maj"))
+		cards = append(cards, makeDefaultCardWithChord(note, "min"))
+		cards = append(cards, makeDefaultCardWithChord(note, "non"))
+		cards = append(cards, makeDefaultCardWithChord(note, "aug"))
+		cards = append(cards, makeDefaultCardWithChord(note, "dim"))
+
+		// Scales
+		cards = append(cards, makeDefaultCardWithScale(note, "maj"))
 	}
 
 	return cards
