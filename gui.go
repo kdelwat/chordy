@@ -4,6 +4,7 @@ import (
 	"fmt"
 	ui "github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
+	mt "gopkg.in/music-theory.v0/note"
 	"image"
 )
 
@@ -15,11 +16,12 @@ var FailStyle ui.Style = ui.NewStyle(ui.ColorRed)
 type ExerciseWidget struct {
 	ui.Block
 	e     *Exercise
+	card  *Card
 	state ExerciseState
 }
 
-func NewExerciseWidget(e *Exercise, s ExerciseState) *ExerciseWidget {
-	return &ExerciseWidget{Block: *ui.NewBlock(), e: e, state: s}
+func NewExerciseWidget(e *Exercise, s ExerciseState, card *Card) *ExerciseWidget {
+	return &ExerciseWidget{Block: *ui.NewBlock(), e: e, state: s, card: card}
 }
 
 func (self *ExerciseWidget) DrawText(buf *ui.Buffer, text string, x, y int, style ui.Style) {
@@ -73,6 +75,18 @@ func (self *ExerciseWidget) Draw(buf *ui.Buffer) {
 		}
 		buf.SetCell(ui.NewCell(icon, style), image.Pt(startX+(i*2), startY))
 		buf.SetCell(ui.NewCell(' '), image.Pt(startX+(i*2)+1, startY))
+
+		if self.state == ExerciseFail {
+			y := 1
+			for _, note := range self.e.Definition.Parts[i] {
+				adj := mt.AdjSymbolOf(self.card.ExerciseDefinition)
+				for _, c := range note.String(adj) {
+					buf.SetCell(ui.NewCell(c, FailStyle), image.Pt(startX+(i*2), startY+y+1))
+					y++
+				}
+				y++
+			}
+		}
 	}
 }
 
@@ -155,7 +169,7 @@ func renderInSession(app *App) {
 
 	info.Text = fmt.Sprintf("Name: %v\nLast seen: %v\nEstimated difficulty: %v", card.Name, lastSeen, card.Ef)
 
-	e := NewExerciseWidget(app.stateInSession.currentExercise, app.stateInSession.state)
+	e := NewExerciseWidget(app.stateInSession.currentExercise, app.stateInSession.state, &app.stateInSession.cards[app.stateInSession.currentIndex])
 
 	var pads ui.GridItem
 
