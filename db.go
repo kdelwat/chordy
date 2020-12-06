@@ -228,6 +228,14 @@ func DefaultCards() []Card {
 
 		// Scales
 		cards = append(cards, makeDefaultCardWithScale(note, "maj"))
+		cards = append(cards, makeDefaultCardWithScale(note, "min"))
+		cards = append(cards, makeDefaultCardWithScale(note, "loc"))
+		cards = append(cards, makeDefaultCardWithScale(note, "ion"))
+		cards = append(cards, makeDefaultCardWithScale(note, "dor"))
+		cards = append(cards, makeDefaultCardWithScale(note, "phr"))
+		cards = append(cards, makeDefaultCardWithScale(note, "lyd"))
+		cards = append(cards, makeDefaultCardWithScale(note, "mix"))
+		cards = append(cards, makeDefaultCardWithScale(note, "aeo"))
 	}
 
 	return cards
