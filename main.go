@@ -15,7 +15,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"time"
 )
 
 type SelectionKey uint8
@@ -28,35 +27,66 @@ const (
 	KeyD
 )
 
-type App struct {
-	db *DB
-
+type MidiResources struct {
 	output *snd.Output
 	input  midi.In
 	multi  *notes.NoteMultiplexer
 	driver *rtmididrv.Driver
+}
 
-	waitingForKey       bool
+type SelectionState struct {
+	waiting             bool
 	pressedWhileWaiting []uint8
+}
+
+type App struct {
+	db *DB
+
+	midi MidiResources
+
+	selection SelectionState
 
 	state          AppState
 	stateInSession StateInSessionArgs
 }
 
 func (a *App) WaitForSelection() {
-	a.waitingForKey = true
-	a.pressedWhileWaiting = []uint8{}
+	a.selection.waiting = true
+	a.selection.pressedWhileWaiting = []uint8{}
 }
 
 func (a *App) SelectionReady(key uint8) bool {
-	for _, k := range a.pressedWhileWaiting {
+	for _, k := range a.selection.pressedWhileWaiting {
 		if k == key {
-			a.waitingForKey = false
+			a.selection.waiting = false
 			return true
 		}
 	}
 
 	return false
+}
+
+func getSelectionKey(key uint8) SelectionKey {
+	keyString := strconv.Itoa(int(key))
+
+	switch keyString {
+	case viper.Get("AKey"):
+		return KeyA
+	case viper.Get("BKey"):
+		return KeyB
+	case viper.Get("CKey"):
+		return KeyC
+	case viper.Get("DKey"):
+		return KeyD
+	}
+
+	return KeyInvalid
+}
+
+func isSelectionKey(key uint8) bool {
+	selectionKey := getSelectionKey(key)
+
+	return selectionKey != KeyInvalid
 }
 
 func InitApp() (*App, error) {
@@ -94,21 +124,28 @@ func InitApp() (*App, error) {
 	input := ins[1]
 	input.Open()
 
+	midi := MidiResources{
+		output: output,
+		input:  input,
+		multi:  multi,
+		driver: driver,
+	}
+
 	// Open database
-	db, err := DBOpen(viper.Get("DatabasePath").(string))
+	db, err := Connect(viper.Get("DatabasePath").(string))
 	if err != nil {
 		return nil, err
 	}
 
 	// Create app state
 	app := App{
-		db:     db,
-		output: output,
-		input:  input,
-		multi:  multi,
-		driver: driver,
-		state:  StateHome}
+		db:        db,
+		midi:      midi,
+		selection: SelectionState{},
+		state:     StateHome,
+	}
 
+	// Set up MIDI event handlers
 	rd := reader.New(
 		reader.NoLogger(),
 		reader.NoteOn(app.onNoteOn),
@@ -124,61 +161,47 @@ func InitApp() (*App, error) {
 }
 
 func (a *App) Stop() {
-	_ = a.output.Stop()
-	a.driver.Close()
-	a.input.Close()
+	_ = a.midi.output.Stop()
+	a.midi.driver.Close()
+	a.midi.input.Close()
+	a.db.Close()
 }
 
-func getSelectionKey(key uint8) SelectionKey {
-	keyString := strconv.Itoa(int(key))
-
-	switch keyString {
-	case viper.Get("AKey"):
-		return KeyA
-	case viper.Get("BKey"):
-		return KeyB
-	case viper.Get("CKey"):
-		return KeyC
-	case viper.Get("DKey"):
-		return KeyD
-	}
-
-	return KeyInvalid
-}
-
-func isSelectionKey(key uint8) bool {
-	selectionKey := getSelectionKey(key)
-
-	return selectionKey != KeyInvalid
-}
-
+// Handle MIDI NOTEON events
 func (a *App) onNoteOn(p *reader.Position, channel, key, velocity uint8) {
-	if a.waitingForKey {
+	// If waiting for a selection (pad press), store the pressed key
+	// and return - need to wait for the NOTEOFF before proceeding
+	if a.selection.waiting {
 		if isSelectionKey(key) {
-			a.pressedWhileWaiting = append(a.pressedWhileWaiting, key)
+			a.selection.pressedWhileWaiting = append(a.selection.pressedWhileWaiting, key)
 		}
 		return
 	}
 
+	// Play the pressed note
 	note := notes.MidiToNote(int64(key))
-	a.multi.SendNoteEvent(notes.NewNoteEvent(notes.Pressed, note, float32(velocity)/127))
+	a.midi.multi.SendNoteEvent(notes.NewNoteEvent(notes.Pressed, note, float32(velocity)/127))
 
+	// Process event according to the current state
 	switch a.state {
 	case StateHome:
-		exercises := GetItemsForToday(a.db.Items)
+		cardsForThisSession, err := a.db.GetCardsForToday()
 
-		if len(exercises) == 0 {
+		if err != nil {
+			panic(err) // This should never happen
+		}
+
+		if len(cardsForThisSession) == 0 {
 			return
 		}
 
-		firstExerciseItem := a.db.Items[exercises[0]]
-		firstExercise := (ExerciseFromDefinition(firstExerciseItem.Name, firstExerciseItem.ExerciseType, firstExerciseItem.ExerciseDefinition))
+		currentExercise := CreateExercise(cardsForThisSession[0])
 
 		a.state = StateInSession
 		a.stateInSession = StateInSessionArgs{
-			exercises:       exercises,
+			cards:           cardsForThisSession,
 			currentIndex:    0,
-			currentExercise: &firstExercise,
+			currentExercise: &currentExercise,
 			state:           ExerciseInProgress,
 		}
 
@@ -227,7 +250,7 @@ func (a *App) onNoteOn(p *reader.Position, channel, key, velocity uint8) {
 
 func (a *App) onNoteOff(p *reader.Position, channel, key, velocity uint8) {
 	note := notes.MidiToNote(int64(key))
-	a.multi.SendNoteEvent(notes.NewNoteEvent(notes.Released, note, float32(velocity)/127))
+	a.midi.multi.SendNoteEvent(notes.NewNoteEvent(notes.Released, note, float32(velocity)/127))
 
 	switch a.state {
 	case StateInSession:
@@ -238,34 +261,34 @@ func (a *App) onNoteOff(p *reader.Position, channel, key, velocity uint8) {
 				a.stateInSession.state = ExerciseInProgress
 			}
 		case ExercisePass:
+			// Wait for the user to make a pad selection
 			if a.SelectionReady(key) {
+				// Based on the pad pressed, determine the difficulty level of the exercise
 				selectionKey := getSelectionKey(key)
-				var q uint
+				var difficulty uint
 				switch selectionKey {
 				case KeyA:
-					q = 0
+					difficulty = 0
 				case KeyB:
-					q = 3
+					difficulty = 3
 				case KeyC:
-					q = 4
+					difficulty = 4
 				case KeyD:
-					q = 5
+					difficulty = 5
 				}
 
-				currentExerciseItem := a.db.Items[a.stateInSession.exercises[a.stateInSession.currentIndex]]
-				recalls, interval, ef := RecalculateItem(q, currentExerciseItem.Recalls, currentExerciseItem.Interval, currentExerciseItem.Ef)
+				updatedCard := RecalculateCard(a.stateInSession.cards[a.stateInSession.currentIndex], difficulty)
 
-				a.db.Update(currentExerciseItem.Name, recalls, ef, interval, time.Now())
+				a.db.Upsert(updatedCard)
 
 				a.stateInSession.currentIndex++
 
-				if a.stateInSession.currentIndex == len(a.stateInSession.exercises) {
+				if a.stateInSession.currentIndex == len(a.stateInSession.cards) {
 					a.state = StateHome
 				} else {
-					nextExerciseItem := a.db.Items[a.stateInSession.exercises[a.stateInSession.currentIndex]]
-					nextExercise := ExerciseFromDefinition(nextExerciseItem.Name, nextExerciseItem.ExerciseType, nextExerciseItem.ExerciseDefinition)
+					currentExercise := CreateExercise(a.stateInSession.cards[a.stateInSession.currentIndex])
 					a.stateInSession.state = ExerciseInProgress
-					a.stateInSession.currentExercise = &nextExercise
+					a.stateInSession.currentExercise = &currentExercise
 				}
 			}
 		}

@@ -121,8 +121,8 @@ func renderHome(app *App) {
 func renderInSession(app *App) {
 	p := widgets.NewGauge()
 	p.Title = "Progress"
-	p.Percent = int(100.0 * float32(app.stateInSession.currentIndex) / float32(len(app.stateInSession.exercises)))
-	p.Label = fmt.Sprintf("%v%% (%v/%v)", p.Percent, app.stateInSession.currentIndex, len(app.stateInSession.exercises))
+	p.Percent = int(100.0 * float32(app.stateInSession.currentIndex) / float32(len(app.stateInSession.cards)))
+	p.Label = fmt.Sprintf("%v%% (%v/%v)", p.Percent, app.stateInSession.currentIndex, len(app.stateInSession.cards))
 
 	e := NewExerciseWidget(app.stateInSession.currentExercise, app.stateInSession.state)
 

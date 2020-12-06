@@ -3,10 +3,16 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"os"
+	"github.com/boltdb/bolt"
+	"math/rand"
+	"sort"
 	"time"
 )
+
+var CardBucket = []byte("cards")
+var MigrationBucket = []byte("migrations")
+
+var Migrated = []byte{1}
 
 type DBItem struct {
 	Name               string
@@ -18,73 +24,139 @@ type DBItem struct {
 	LastRecalledAt     time.Time
 }
 
+func (self *DBItem) Key() []byte {
+	return []byte(self.Name)
+}
+
+func (self *DBItem) Serialize() ([]byte, error) {
+	return json.Marshal(self)
+}
+
+func DeserializeCard(data []byte) (DBItem, error) {
+	var card DBItem
+	err := json.Unmarshal(data, &card)
+	return card, err
+}
+
 type DB struct {
-	Items []DBItem
-	Path  string
+	db *bolt.DB
 }
 
-// https://stackoverflow.com/a/22467409
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	if os.IsNotExist(err) {
-		return false
-	}
-	return err == nil
-}
-
-func DBOpen(path string) (*DB, error) {
-	if !fileExists(path) {
-		db := DB{Items: DefaultItems(), Path: path}
-
-		dbJson, err := json.Marshal(db)
-		if err != nil {
-			return nil, err
-		}
-
-		if err = ioutil.WriteFile(path, dbJson, 0644); err != nil {
-			return nil, err
-		}
-
-		return &db, nil
-	} else {
-		dbJson, err := ioutil.ReadFile(path)
-		if err != nil {
-			return nil, err
-		}
-
-		var db DB
-		if err = json.Unmarshal(dbJson, &db); err != nil {
-			return nil, err
-		}
-
-		return &db, nil
-	}
-}
-
-func (self *DB) Update(name string, recalls uint, ef float32, interval uint, lastRecalledAt time.Time) error {
-	for _, item := range self.Items {
-		if item.Name == name {
-			item.Recalls = recalls
-			item.Ef = ef
-			item.Interval = interval
-			item.LastRecalledAt = lastRecalledAt
-		}
-	}
-
-	return self.Save()
-}
-
-func (self *DB) Save() error {
-	dbJson, err := json.Marshal(self)
+func Connect(path string) (*DB, error) {
+	db, err := bolt.Open(path, 0600, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if err = ioutil.WriteFile(self.Path, dbJson, 0644); err != nil {
-		return err
+	err = db.Update(func(tx *bolt.Tx) error {
+		cards, err := tx.CreateBucketIfNotExists(CardBucket)
+		if err != nil {
+			return err
+		}
+
+		migrations, err := tx.CreateBucketIfNotExists(MigrationBucket)
+		if err != nil {
+			return err
+		}
+
+		hasAddedDefaults := migrations.Get([]byte("defaults"))
+
+		if hasAddedDefaults == nil {
+			for _, item := range DefaultItems() {
+				v, err := item.Serialize()
+				if err != nil {
+					return err
+				}
+
+				err = cards.Put(item.Key(), v)
+				if err != nil {
+					return err
+				}
+			}
+
+			err := migrations.Put([]byte("defaults"), Migrated)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	return &DB{db: db}, nil
+}
+
+func (self *DB) Close() {
+	self.db.Close()
+}
+
+func (self *DB) Upsert(item DBItem) error {
+	return self.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(CardBucket)
+
+		v, err := item.Serialize()
+		if err != nil {
+			return err
+		}
+
+		return b.Put(item.Key(), v)
+	})
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	} else {
+		return b
+	}
+}
+
+func (self *DB) GetCardsForToday() ([]DBItem, error) {
+	// Read in all cards which have a next recall time before now (ready for review)
+	eligibleCards := []DBItem{}
+	now := time.Now()
+
+	err := self.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(CardBucket)
+		b.ForEach(func(k, v []byte) error {
+			item, err := DeserializeCard(v)
+
+			if err != nil {
+				return err
+			}
+
+			if NextRecallTime(item).Before(now) {
+				eligibleCards = append(eligibleCards, item)
+			}
+
+			return nil
+		})
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Sort cards in ascending order of next recall time (oldest first)
+	sort.Slice(eligibleCards, func(a, b int) bool {
+		return NextRecallTime(eligibleCards[a]).Before(NextRecallTime(eligibleCards[b]))
+	})
+
+	// Take subset of cards for this session
+	eligibleCards = eligibleCards[:min(MaxItemsPerDay, len(eligibleCards))]
+
+	// Shuffle cards
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(len(eligibleCards), func(a, b int) {
+		eligibleCards[a], eligibleCards[b] = eligibleCards[b], eligibleCards[a]
+	})
+
+	return eligibleCards, nil
 }
 
 func makeDefaultItem(name, exerciseType, exerciseDefinition string) DBItem {

@@ -67,15 +67,15 @@ func notesToClasses(notes []*note.Note) []note.Class {
 	return classes
 }
 
-func ExerciseFromDefinition(name, t, def string) Exercise {
+func CreateExercise(card DBItem) Exercise {
 	var definition ExerciseDefinition
-	definition.Name = name
+	definition.Name = card.Name
 
-	switch t {
+	switch card.ExerciseType {
 	case "note":
-		definition.Parts = [][]note.Class{[]note.Class{parseNote(def)}}
+		definition.Parts = [][]note.Class{[]note.Class{parseNote(card.ExerciseDefinition)}}
 	case "chord":
-		c := chord.Of(def)
+		c := chord.Of(card.ExerciseDefinition)
 		definition.Parts = [][]note.Class{notesToClasses((&c).Notes())}
 	}
 

@@ -18,7 +18,7 @@ const (
 type StateHomeArgs struct{}
 
 type StateInSessionArgs struct {
-	exercises       []int
+	cards           []DBItem
 	currentIndex    int
 	currentExercise *Exercise
 	state           ExerciseState
