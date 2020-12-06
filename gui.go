@@ -15,13 +15,11 @@ var FailStyle ui.Style = ui.NewStyle(ui.ColorRed)
 
 type ExerciseWidget struct {
 	ui.Block
-	e     *Exercise
-	card  *Card
-	state ExerciseState
+	state StateInSessionArgs
 }
 
-func NewExerciseWidget(e *Exercise, s ExerciseState, card *Card) *ExerciseWidget {
-	return &ExerciseWidget{Block: *ui.NewBlock(), e: e, state: s, card: card}
+func NewExerciseWidget(s StateInSessionArgs) *ExerciseWidget {
+	return &ExerciseWidget{Block: *ui.NewBlock(), state: s}
 }
 
 func (self *ExerciseWidget) DrawText(buf *ui.Buffer, text string, x, y int, style ui.Style) {
@@ -34,25 +32,25 @@ func (self *ExerciseWidget) Draw(buf *ui.Buffer) {
 	self.Block.Draw(buf)
 
 	// Draw info
-	self.DrawText(buf, fmt.Sprintf("Exercise: %s", self.e.Definition.Name),
+	self.DrawText(buf, fmt.Sprintf("Exercise: %s", self.state.currentExercise.Definition.Name),
 		self.Inner.Min.X,
 		self.Inner.Min.Y,
 		NormalStyle)
 
-	if self.state == ExerciseFail {
-		self.DrawText(buf, "FAILED. Make any selection to continue.",
+	if self.state.state == ExerciseFail {
+		self.DrawText(buf, "INCORRECT",
 			self.Inner.Min.X,
 			self.Inner.Min.Y+1,
 			FailStyle)
-	} else if self.state == ExercisePass {
-		self.DrawText(buf, "PASSED. Make any selection to continue.",
+	} else if self.state.state == ExercisePass {
+		self.DrawText(buf, "CORRECT",
 			self.Inner.Min.X,
 			self.Inner.Min.Y+1,
 			SuccessStyle)
 	}
 
 	// Draw progress boxes
-	width := len(self.e.Definition.Parts)
+	width := len(self.state.currentExercise.Definition.Parts)
 	startX := self.Inner.Min.X - 1 + ((self.Inner.Max.X-self.Inner.Min.X)-width)/2
 	startY := self.Inner.Min.Y + ((self.Inner.Max.Y - self.Inner.Min.Y) / 2)
 
@@ -60,13 +58,13 @@ func (self *ExerciseWidget) Draw(buf *ui.Buffer) {
 		var icon rune
 		var style ui.Style
 
-		if self.state == ExerciseFail && self.e.CurrentStep == i {
+		if self.state.state == ExerciseFail && self.state.currentExercise.CurrentStep == i {
 			icon = '▣'
 			style = FailStyle
-		} else if self.e.CurrentStep > i {
+		} else if self.state.currentExercise.CurrentStep > i {
 			icon = '▣'
 			style = SuccessStyle
-		} else if self.e.CurrentStep == i {
+		} else if self.state.currentExercise.CurrentStep == i {
 			icon = '□'
 			style = CurrentStyle
 		} else {
@@ -76,12 +74,20 @@ func (self *ExerciseWidget) Draw(buf *ui.Buffer) {
 		buf.SetCell(ui.NewCell(icon, style), image.Pt(startX+(i*2), startY))
 		buf.SetCell(ui.NewCell(' '), image.Pt(startX+(i*2)+1, startY))
 
-		if self.state == ExerciseFail {
+		if self.state.state == ExerciseFail || (self.state.showHint && self.state.currentExercise.CurrentStep == i) {
+			var style ui.Style
+
+			if self.state.state == ExerciseFail {
+				style = FailStyle
+			} else {
+				style = CurrentStyle
+			}
+
 			y := 1
-			for _, note := range self.e.Definition.Parts[i] {
-				adj := mt.AdjSymbolOf(self.card.ExerciseDefinition)
+			for _, note := range self.state.currentExercise.Definition.Parts[i] {
+				adj := mt.AdjSymbolOf(self.state.cards[self.state.currentIndex].ExerciseDefinition)
 				for _, c := range note.String(adj) {
-					buf.SetCell(ui.NewCell(c, FailStyle), image.Pt(startX+(i*2), startY+y+1))
+					buf.SetCell(ui.NewCell(c, style), image.Pt(startX+(i*2), startY+y+1))
 					y++
 				}
 				y++
@@ -169,7 +175,7 @@ func renderInSession(app *App) {
 
 	info.Text = fmt.Sprintf("Name: %v\nLast seen: %v\nEstimated difficulty: %v", card.Name, lastSeen, card.Ef)
 
-	e := NewExerciseWidget(app.stateInSession.currentExercise, app.stateInSession.state, &app.stateInSession.cards[app.stateInSession.currentIndex])
+	e := NewExerciseWidget(app.stateInSession)
 
 	var pads ui.GridItem
 
