@@ -11,6 +11,7 @@ at an interval designed to effectively store them into long-term memory.
 * Contains many music theory exercises: notes, chords (major, minor, diminished...), and scales (major, minor, other modes) - with more to come
 * Repeats exercises at intervals designed to improve long-term and muscle memory, using the [SM2 algorithm](https://www.supermemo.com/en/archives1990-2015/english/ol/sm2)
 * Records the difficulty of each exercise and factors this into exercise spacing
+* Simple terminal-based UI
 * Supports most MIDI controllers via rtmidi
 
 ## Installation
@@ -63,3 +64,6 @@ You can modify this to suit your controller. The `databasepath` parameter specif
 I've tested this program using the Akai MPK Mini controller only. There could be bugs relating to other controllers - if so, please file an issue
 and I'll try to help!
 
+## License
+
+This project is released into the public domain, using the [Unlicense](http://unlicense.org). Feel free to do whatever you want with it!
