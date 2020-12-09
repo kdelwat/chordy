@@ -29,14 +29,15 @@ Before running the program, make sure your MIDI controller is connected.
 
 After running `chordy`, you can play any note to start a session. During the session, the main area of the screen is filled with the current exercise.
 
-Play the exercise on your controller to complete it. For example, the screenshot shows the "Gbmin" exercise, or G flat minor - playing
-the notes G♭, A, and D♭ (the octave you play doesn't matter).
+Play the exercise on your controller to complete it. For example, the screenshot shows the "Gbmin" exercise, or G flat minor - to proceed, play
+the notes G♭, A, and D♭ (the octave you play doesn't matter). The number of boxes indicate the number of steps in the exercise. For a chord, this is
+one, but a diatonic scale would have seven steps to complete.
 
 ![Playing an exercise in Chordy](chordy1.png)
 
-At the bottom of the screen is the pad controls - you can use the pads on your MIDI controller to perform these actions (see the configuration
-section for more details). After completing an exercise, use the pads to select how hard it was for you to recall. This will affect how many days it
-will be until the exercise is shown again.
+At the bottom of the screen are the pad controls. You can use the pads on your MIDI controller to perform these actions (see the configuration
+section for more details). After completing an exercise, use the pads to select how difficult it was to recall. This will affect how many days
+will pass until the exercise is shown again.
 
 You can exit Chordy at any time by pressing `q` or `Ctrl-C`. All progress is saved automatically.
 
