@@ -2,6 +2,7 @@ package main
 
 type AppState uint8
 
+// Application is modelled as a simple state machine
 const (
 	StateHome = iota
 	StateInSession

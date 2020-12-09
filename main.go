@@ -17,6 +17,7 @@ import (
 	"strconv"
 )
 
+// The user can use MIDI controller pads to make selections
 type SelectionKey uint8
 
 const (
@@ -27,16 +28,17 @@ const (
 	KeyD
 )
 
+type SelectionState struct {
+	waiting             bool
+	pressedWhileWaiting []uint8
+}
+
+// Application state
 type MidiResources struct {
 	output *snd.Output
 	input  midi.In
 	multi  *notes.NoteMultiplexer
 	driver *rtmididrv.Driver
-}
-
-type SelectionState struct {
-	waiting             bool
-	pressedWhileWaiting []uint8
 }
 
 type App struct {
