@@ -339,7 +339,7 @@ func main() {
 		log.Fatalf("could not create config directory: %v", err)
 	}
 
-	viper.SetDefault("DatabasePath", filepath.Join(defaultDataPath, "db.json"))
+	viper.SetDefault("DatabasePath", filepath.Join(defaultDataPath, "db"))
 	viper.SetDefault("AKey", "40")
 	viper.SetDefault("BKey", "41")
 	viper.SetDefault("CKey", "42")
